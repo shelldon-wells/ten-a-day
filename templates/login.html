@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ten a Day</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  
+  <link rel="manifest" href="/static/manifest.json">
+  
+</head>
+<body>
+
+  <div class="container">
+
+    <header>
+      <h1>Ten a Day</h1>
+    </header>
+
+    <p class="task-count">A simple daily task list. Ten tasks. No clutter.</p>
+
+    <a href="/login" class="btn-signin">Sign in with Google</a>
+
+  </div>
+  
+  <!-- Scripts -->
+  <script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/static/sw.js");
+  }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ten a Day</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  
+  <link rel="manifest" href="/static/manifest.json">
+  
+</head>
+
+
+<body>
+
+  <div class="container">
+
+    <header>
+      <h1>Ten a Day</h1>
+      <a href="/logout" class="logout-link">Logout</a>
+    </header>
+
+    <p class="task-count">{{ tasks | length }} / 10 tasks</p>
+
+    {% if tasks | length < 10 %}
+      <form action="/add" method="POST" class="add-form">
+        <input type="text" name="title" placeholder="What needs doing?" required>
+        <button type="submit" class="btn-add">Add</button>
+      </form>
+    {% else %}
+      <p class="limit-message">You've hit the 10 task limit. Complete something first!</p>
+    {% endif %}
+
+    {% if tasks %}
+      <ul class="task-list">
+        {% for task in tasks %}
+          <li class="task-item">
+            <span class="task-title">{{ task.title }}</span>
+            <form action="/complete/{{ task.id }}" method="POST">
+              <button type="submit" class="btn-done">✓ Done</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-message">No tasks yet. You're all clear!</p>
+    {% endif %}
+
+  </div>
+  
+  <!-- Scripts -->
+  <script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/static/sw.js");
+  }
+  </script>
+
+</body>
+</html>
