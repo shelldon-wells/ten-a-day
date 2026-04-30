@@ -44,10 +44,11 @@ Ten a Day is a web-based daily to-do list application. The core concept is simpl
 - **Step 7 (DONE):** Style it up with CSS
 - **Step 8 (DONE):** Make the app a PWA
 - **Step 9 (DONE):** Deploy to Google Cloud Run
+- **Step 10 (DONE):** Set up environment variables & push to GitHub
 
 ---
 
-## 5. What Was Completed — Steps 1–9
+## 5. What Was Completed — Steps 1–10
 
 ### Step 1 — Project Setup
 - Folder created: `~/ten-a-day/`
@@ -73,9 +74,8 @@ Ten a Day is a web-based daily to-do list application. The core concept is simpl
 - Confirmed the Firestore data structure works end to end
 - Learned the difference between collections, documents, and subcollections
 - `firestore.client()` requires `database_id=` argument (not `database=`) in firebase-admin 7.4.0
-- The correct Firestore client initialisation is: `db = firestore.client(database_id="YOUR_DATABASE_NAME")`
+- The correct Firestore client initialisation is: `db = firestore.client(database_id=os.environ.get("DATABASE_NAME"))`
 - A temporary `/test-write` route was added to `app.py`, tested successfully, then removed
-- Test data (`test_user_123`) was written to Firestore and confirmed visible in the Firebase console, then deleted
 - `firebase-admin` upgraded to version 7.4.0
 
 ### Step 5 — Google OAuth
@@ -124,11 +124,20 @@ Ten a Day is a web-based daily to-do list application. The core concept is simpl
 - `app.py` updated — Firebase initialisation now uses Application Default Credentials (ADC) on Cloud Run, falls back to `serviceAccountKey.json` locally
 - `ProxyFix` middleware added — fixes `http://` vs `https://` mismatch caused by Cloud Run's proxy
 - Cloud Run service account granted `roles/datastore.user` permission for Firestore access
-- Flask secret key replaced with a secure random string generated via `secrets.token_hex(32)`
 - App deployed successfully via `gcloud run deploy`
 - OAuth consent screen published to production
 - Live URL confirmed working: `https://ten-a-day-717280198396.europe-west1.run.app`
-- Full sign-in and task management flow confirmed working in production
+
+### Step 10 — Environment Variables & GitHub
+- `python-dotenv` installed and added to `requirements.txt`
+- `.env` file created locally with all sensitive values (`SECRET_KEY`, `DATABASE_NAME`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`)
+- `app.py` updated to read all sensitive values from environment variables via `os.environ.get()`
+- Environment variables set in Cloud Run via `gcloud run services update --set-env-vars`
+- `.env` and `client_secret_*.json` added to `.gitignore` and removed from git tracking
+- Git repository initialised and code committed
+- SSH key generated and added to GitHub
+- Remote set to: `git@github.com:shelldon-wells/ten-a-day.git`
+- Code pushed to GitHub successfully — no secrets in the repository
 
 ---
 
@@ -137,14 +146,17 @@ Ten a Day is a web-based daily to-do list application. The core concept is simpl
 ### app.py
 ```python
 import os
+from dotenv import load_dotenv
 from flask import Flask, redirect, url_for, session, render_template, request
 from authlib.integrations.flask_client import OAuth
 from werkzeug.middleware.proxy_fix import ProxyFix
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = "YOUR_SECRET_KEY"
+app.secret_key = os.environ.get("SECRET_KEY")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 if os.path.exists("serviceAccountKey.json"):
@@ -153,13 +165,13 @@ if os.path.exists("serviceAccountKey.json"):
 else:
     firebase_admin.initialize_app()
 
-db = firestore.client(database_id="YOUR_DATABASE_NAME")
+db = firestore.client(database_id=os.environ.get("DATABASE_NAME"))
 
 oauth = OAuth(app)
 google = oauth.register(
     name="google",
-    client_id="YOUR_CLIENT_ID",
-    client_secret="YOUR_CLIENT_SECRET",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
     server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
     client_kwargs={"scope": "openid email profile"},
 )
@@ -241,7 +253,15 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=port, debug=False)
 ```
 
-*(Replace `YOUR_SECRET_KEY`, `YOUR_DATABASE_NAME`, `YOUR_CLIENT_ID`, and `YOUR_CLIENT_SECRET` with your actual values.)*
+---
+
+### .env (local only — never commit this file)
+```
+SECRET_KEY=your-actual-secret-key
+DATABASE_NAME=your-actual-database-name
+GOOGLE_CLIENT_ID=your-actual-client-id
+GOOGLE_CLIENT_SECRET=your-actual-client-secret
+```
 
 ---
 
@@ -594,6 +614,18 @@ __pycache__/
 
 ---
 
+### .gitignore
+```
+venv/
+serviceAccountKey.json
+__pycache__/
+*.pyc
+.env
+client_secret_*.json
+```
+
+---
+
 ## 7. Firestore Data Structure (Confirmed Working)
 
 ```
@@ -632,22 +664,60 @@ users/                          ← collection
 | PWA              | App is a PWA — manifest, service worker, and icons all confirmed working in Chrome DevTools |
 | Credentials      | `serviceAccountKey.json` is excluded from Docker image — Cloud Run uses Application Default Credentials (ADC) instead |
 | ProxyFix         | `werkzeug.middleware.proxy_fix.ProxyFix` must be applied to fix `http://` vs `https://` mismatch behind Cloud Run's proxy |
-| Secret key       | Flask secret key must be a long random string generated with `secrets.token_hex(32)` — never use a placeholder in production |
+| Secret key       | Flask secret key generated with `secrets.token_hex(32)` and stored as environment variable |
+| Environment vars | All sensitive values stored in `.env` locally and set via `gcloud run services update --set-env-vars` in production |
+| GitHub auth      | SSH key authentication used for GitHub — HTTPS with PAT did not work reliably |
 
 ---
 
-## 9. Deployment Details
+## 9. Deployment & Repository Details
 
 | Item | Value |
 |------|-------|
 | Google Cloud project ID | `ten-a-day-494607` |
 | Cloud Run region | `europe-west1` |
 | Live URL | `https://ten-a-day-717280198396.europe-west1.run.app` |
-| Redeploy command | `gcloud run deploy ten-a-day --source . --region europe-west1 --platform managed --allow-unauthenticated` |
+| GitHub repository | `git@github.com:shelldon-wells/ten-a-day.git` |
 
 ---
 
-## 10. How to Continue Building This App
+## 10. Development Workflow
+
+When making changes to the app:
+
+**1. Make and test changes locally:**
+```bash
+cd ~/ten-a-day
+source venv/bin/activate
+python app.py
+```
+
+**2. Commit and push to GitHub:**
+```bash
+git add .
+git commit -m "description of change"
+git push
+```
+
+**3. Redeploy to Cloud Run:**
+```bash
+gcloud run deploy ten-a-day \
+  --source . \
+  --region europe-west1 \
+  --platform managed \
+  --allow-unauthenticated
+```
+
+**4. If environment variables have changed, update them in Cloud Run:**
+```bash
+gcloud run services update ten-a-day \
+  --region europe-west1 \
+  --set-env-vars SECRET_KEY="...",DATABASE_NAME="...",GOOGLE_CLIENT_ID="...",GOOGLE_CLIENT_SECRET="..."
+```
+
+---
+
+## 11. How to Continue Building This App
 
 - Always explain what each line of code does — the user is learning.
 - Do NOT paste the entire app at once — build one step at a time.
@@ -656,4 +726,4 @@ users/                          ← collection
 - The active virtual environment command is: `source venv/bin/activate`
 - The project folder is: `~/ten-a-day/`
 - User prefers open source tools only — avoid proprietary formats like .docx.
-- After any code changes, redeploy using the command in Section 9.
+- After any code changes, follow the development workflow in Section 10.

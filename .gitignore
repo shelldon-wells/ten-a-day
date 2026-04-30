@@ -1,2 +1,4 @@
 serviceAccountKey.json
 venv/
+.env
+client_secret_*.json
