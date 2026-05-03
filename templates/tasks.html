@@ -5,16 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ten a Day</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  
   <link rel="manifest" href="/static/manifest.json">
-  
 </head>
-
-
 <body>
 
   <div class="container">
-
     <header>
       <h1>Ten a Day</h1>
       <a href="/logout" class="logout-link">Logout</a>
@@ -34,8 +29,16 @@
     {% if tasks %}
       <ul class="task-list">
         {% for task in tasks %}
-          <li class="task-item">
-            <span class="task-title">{{ task.title }}</span>
+          <li class="task-item {% if task.is_pinned %}pinned{% endif %}">
+            <div class="task-main">
+              <form action="/toggle_pin/{{ task.id }}" method="POST" class="pin-form">
+                <button type="submit" class="btn-pin">
+                  {{ "★" if task.is_pinned else "☆" }}
+                </button>
+              </form>
+              <span class="task-title">{{ task.title }}</span>
+            </div>
+
             <form action="/complete/{{ task.id }}" method="POST">
               <button type="submit" class="btn-done">✓ Done</button>
             </form>
@@ -45,14 +48,12 @@
     {% else %}
       <p class="empty-message">No tasks yet. You're all clear!</p>
     {% endif %}
-
   </div>
-  
-  <!-- Scripts -->
+
   <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/static/sw.js");
-  }
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/static/sw.js");
+    }
   </script>
 
 </body>

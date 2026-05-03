@@ -43,22 +43,41 @@ google = oauth.register(
 # app.route is adecorator, it tells flask that when someon visits the root url(/), it should run the function below
 @app.route("/")
 def index():
-	user = session.get("user")
-	if not user:
-	    return render_template("login.html")
+    user = session.get("user")
+    if not user:
+        return render_template("login.html")
 
-	# Fetch this user's tasks from Firestore
-	tasks_ref = db.collection("users").document(user["id"]).collection("tasks")
-	tasks_snapshot = tasks_ref.order_by("created_at").get()
+    tasks_ref = db.collection("users").document(user["id"]).collection("tasks")
+    
+    # Sort by is_pinned (True first) then by date
+    # Note: This will require a Composite Index in Firestore
+    tasks_snapshot = tasks_ref.order_by("is_pinned", direction=firestore.Query.DESCENDING).order_by("created_at").get()
 
-	# Build a plain list of dicts we can pass to the template
-	tasks = []
-	for doc in tasks_snapshot:
-	    task = doc.to_dict()       # converts Firestore document to a Python dict
-	    task["id"] = doc.id        # we'll need the document ID later for delete/complete
-	    tasks.append(task)
+    tasks = []
+    for doc in tasks_snapshot:
+        task = doc.to_dict()
+        task["id"] = doc.id
+        # Handle existing tasks that don't have the field yet
+        task["is_pinned"] = task.get("is_pinned", False)
+        tasks.append(task)
 
-	return render_template("tasks.html", user=user, tasks=tasks)
+    return render_template("tasks.html", user=user, tasks=tasks)
+
+
+@app.route("/toggle_pin/<task_id>", methods=["POST"])
+def toggle_pin(task_id):
+    user = session.get("user")
+    if not user:
+        return redirect(url_for("index"))
+
+    task_ref = db.collection("users").document(user["id"]).collection("tasks").document(task_id)
+    task_doc = task_ref.get()
+
+    if task_doc.exists:
+        current_status = task_doc.to_dict().get("is_pinned", False)
+        task_ref.update({"is_pinned": not current_status})
+
+    return redirect(url_for("index"))
 
 
 
@@ -99,9 +118,11 @@ def add_task():
     if not title:
         return redirect(url_for("index"))
 
+    # Add the task with the new is_pinned field
     tasks_ref.add({
         "title": title,
         "created_at": firestore.SERVER_TIMESTAMP,
+        "is_pinned": False  # <--- CRITICAL: New tasks must have this field
     })
 
     return redirect(url_for("index"))
@@ -128,8 +149,10 @@ def logout():
 
 
 
+
+
 # Only run this block if we are executing this file
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=True)
 
